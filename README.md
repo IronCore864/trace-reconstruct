@@ -53,6 +53,7 @@ The timestamps showed when I finished my code and started testing.
 - add UT
 - add more input validation to ignore malformed input lines
 - add statistics about orphan lines and other required stuff
+- the get all callers part might be improved performance wise, but probably no need, since typically in a trace there will only be around 20 logs or so
 - implement 20s pending: set a timer when receiving first entry of the trace, when "null->xxx" is received, wait till 20s, then start doing trace reconstruct. Here I have already given an initial thought: might need to add another field to record first entry's time, then need another go routine to check timer, might need lock on the buffer map. To show you my capabilities of go routine and communication between routines, see: https://github.com/IronCore864/go-courses-uni-california-irvine/blob/master/ConcurrencyInGo/Week4/philosopher/main.go
 - another simple solutoin would be to use redis and simply set TTL to 20s
 - buffer: delete processed trace, but I see no need to limit the size: even if we got 1b req/day, in 20s window there are maximum 200k lines of logs, which is not much.
