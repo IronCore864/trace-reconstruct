@@ -42,13 +42,14 @@ Second test case is what I recovered from the output of the traces-evaluator:
 
 The timestamps showed when I finished my code and started testing.
 
-What is missing:
+## What is Missing:
 - very basic input validation
 - no optional stderr for statistics
 - no implementation of the 20s pending entries, treated as orphan line if they came later than the root "null->xxx"
 - no buffer implemented
 
-If I work more on it, I will do:
+## Todo
+
 - add UT
 - add more input validation to ignore malformed input lines
 - add statistics about orphan lines and other required stuff
