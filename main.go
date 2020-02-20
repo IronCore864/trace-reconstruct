@@ -6,6 +6,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
+	"time"
+
+	"trace-reconstruct/config"
 )
 
 func getAllCalls(logs []Log, span string) []Log {
@@ -21,16 +25,24 @@ func getAllCalls(logs []Log, span string) []Log {
 
 // based on the root log span, get all logs whose callerSpan euqals span
 // recursive for callers using the function above
-func traceReconstruct(logs []Log) {
-	id := logs[0].trace
-	root := logs[len(logs)-1]
-	root.Calls = getAllCalls(logs, root.Span)
-	res := Result{id, root}
-	json, err := json.MarshalIndent(res, "", "  ")
-	if err != nil {
-		fmt.Println(err)
+func traceReconstruct(m map[string][]Log, lock *sync.Mutex) {
+	for trace, logs := range m {
+		if time.Now().Sub(logs[0].insertTime) < time.Duration(config.Conf.Interval)*time.Second {
+			continue
+		}
+
+		root := logs[len(logs)-1]
+		root.Calls = getAllCalls(logs, root.Span)
+		res := Result{trace, root}
+		json, err := json.MarshalIndent(res, "", "  ")
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Println(string(json))
+		lock.Lock()
+		delete(m, trace)
+		lock.Unlock()
 	}
-	fmt.Println(string(json))
 }
 
 // split input, no validation
@@ -49,24 +61,29 @@ func constructLogFromInput(input string) (bool, Log) {
 	}
 	callerSpan := spans[0]
 	span := spans[1]
-	return true, Log{start, end, trace, service, make([]Log, 0), callerSpan, span}
+	return true, Log{time.Now(), start, end, trace, service, make([]Log, 0), callerSpan, span}
+}
+
+func startPolling(m map[string][]Log, lock *sync.Mutex) {
+	for range time.Tick(1 * time.Second) {
+		go traceReconstruct(m, lock)
+	}
 }
 
 func main() {
 	m := make(map[string][]Log)
-	reader := bufio.NewReader(os.Stdin)
+	lock := &sync.Mutex{}
+	go startPolling(m, lock)
 
+	reader := bufio.NewReader(os.Stdin)
 	for {
 		input, _ := reader.ReadString('\n')
-
 		valid, log := constructLogFromInput(input)
 		if valid == false {
 			continue
 		}
+		lock.Lock()
 		m[log.trace] = append(m[log.trace], log)
-		// span "null->xxx" always finishes last, ignore following entries for the same trace
-		if log.callerSpan == "null" {
-			traceReconstruct(m[log.trace])
-		}
+		lock.Unlock()
 	}
 }
